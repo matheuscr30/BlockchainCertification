@@ -1,0 +1,26 @@
+{
+  "name": "token-sale",
+  "version": "1.0.0",
+  "description": "TokenSale",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "console": "truffle develop",
+    "test": "truffle test"
+  },
+  "author": "Matheus Cunha Reis (matheuscunhareis30@gmail.com)",
+  "license": "MIT",
+  "dependencies": {
+    "babel-polyfill": "^6.26.0",
+    "babel-preset-env": "^1.7.0",
+    "babel-register": "^6.26.0",
+    "bn-chai": "^1.0.1",
+    "chai": "^4.1.2",
+    "chai-as-promised": "^7.1.1",
+    "chai-bignumber": "^2.0.2",
+    "openzeppelin-solidity": "1.12.0",
+    "pify": "^4.0.0",
+    "web3": "^1.0.0-beta.35"
+  }
+}

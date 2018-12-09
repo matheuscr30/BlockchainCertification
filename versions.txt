@@ -1,0 +1,2 @@
+Truffle v5.0.0-beta.1
+Ganache 1.1.0
