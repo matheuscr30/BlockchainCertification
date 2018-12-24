@@ -1,0 +1,31 @@
+Section 3: Contract Questions
+
+1. I didn't use libraries because i used the OpenZeppelin Contracts and the rest of the code implemented by myself is
+so specific and just useful for the specific contract, so i prefer keep the functions in the contract itself
+
+2. I used the 3rd party code from OpenZeppelin, because they implement and simplify a lot of code. Being specific, n
+the TokenSale I used the Ownable Contract to set an owner to the contract and the PostDeliveryCrowdsale that
+inherit the Crowdsale that provide a Crowdsale with opening and closing time, post delivering the tokens to the user.
+Also, I used the MintableToken that inherit the ERC20 for develop the token
+
+3. In the storage I saved the 3 parameters to the constructor of the contract (price, bonus, duration). Also, I saved
+a mapping(address => bool) whitelistedAddresses to save for each address a boolean confirming when the user provided
+a valid whitelist note before start to buy tokens, a mapping(bytes32 => uint) weiPerBonus to allow the user to use a
+bonus note multiple times increasing the wei per bonus in each purchase using the bonus note, a
+mapping(address => uint) etherSpentPerAddress to save the ether spent for each address for in the case of the sale been
+aborted and the user buy tokens with bonus and try to refund the ether invested. Plus that, I saved other 2 variables,
+a boolean isAborted to save when the sale is aborted or not and an int etherRetrievedByOwner to let the owner retrieve
+many times after the sale is finished
+
+4. I implemented 4 events, the first event WhitelistAdded is emitted when some buyer provided manually a whitelist note
+before start buying tokens with the buyer address as an argument. The second event SaleAborted is emitted when the sale
+is aborted passing the aborting time as an argument. The third event TokenGeneration is emitted when the user generate
+his tokens after the a sucessful sale passing int the arguments the address of the buyer and the amount of the tokens
+generated. Also, the OpenZeppelin provide another event the TokenPurchase that is the event when the buyers buy tokens
+passing as arguments the address of the purchaser, the address of the beneficiary, the value of ether spent and the
+amount of tokens bought
+
+
+Section 5:
+Ethereum Questions:
+1.
