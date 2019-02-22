@@ -594,4 +594,85 @@ contract('TokenSale', function (
             from: owner
         }).should.be.rejectedWith(EVMRevert);
     });
+
+    it('should not let the buyer sell his tokens before the sale is closed', async function () {
+        let weiAmount = 500;
+        let expectedBalance = weiAmount / PRICE;
+
+        await this.tokenSale.buyTokensWithSignature(this.anotherBuyerWhitelistedSig, {
+            from: anotherBuyerWhitelisted,
+            value: weiAmount
+        }).should.be.fulfilled;
+
+        let oldTokenSaleBalance = new web3.utils.BN(await this.tokenSale.balances(anotherBuyerWhitelisted));
+        oldTokenSaleBalance.should.eq.BN(expectedBalance)
+
+        await this.tokenSale.sellTokens(expectedBalance, {
+            from: anotherBuyerWhitelisted
+        }).should.be.rejectedWith(EVMRevert);
+    });
+
+    it('should not let the buyer sell more tokens than he has', async function () {
+        let weiAmount = 500;
+        let expectedBalance = weiAmount / PRICE;
+
+        await this.tokenSale.buyTokensWithSignature(this.anotherBuyerWhitelistedSig, {
+            from: anotherBuyerWhitelisted,
+            value: weiAmount
+        }).should.be.fulfilled;
+
+        let oldTokenSaleBalance = new web3.utils.BN(await this.tokenSale.balances(anotherBuyerWhitelisted));
+        oldTokenSaleBalance.should.eq.BN(expectedBalance)
+
+        await increaseTime(DURATION+1);
+
+        await this.tokenSale.generateTokens({
+            from: anotherBuyerWhitelisted
+        }).should.be.fulfilled;
+
+        let newTokenBalance = new web3.utils.BN(await this.token.balanceOf(anotherBuyerWhitelisted));
+        newTokenBalance.should.be.eq.BN(oldTokenSaleBalance);
+
+        await this.tokenSale.sellTokens(expectedBalance+1, {
+            from: anotherBuyerWhitelisted
+        }).should.be.rejectedWith(EVMRevert);
+    });
+
+    it('should let the buyer sell his tokens after the sale closes', async function () {
+        let weiAmount = 500;
+        let expectedBalance = weiAmount / PRICE;
+        let priceForSell = weiAmount * 0.1 / expectedBalance;
+
+        await this.tokenSale.buyTokensWithSignature(this.anotherBuyerWhitelistedSig, {
+            from: anotherBuyerWhitelisted,
+            value: weiAmount
+        }).should.be.fulfilled;
+
+        let oldTokenSaleBalance = new web3.utils.BN(await this.tokenSale.balances(anotherBuyerWhitelisted));
+        oldTokenSaleBalance.should.eq.BN(expectedBalance)
+
+        await increaseTime(DURATION+1);
+
+        await this.tokenSale.generateTokens({
+            from: anotherBuyerWhitelisted
+        }).should.be.fulfilled;
+
+        let newTokenBalance = new web3.utils.BN(await this.token.balanceOf(anotherBuyerWhitelisted));
+        newTokenBalance.should.be.eq.BN(oldTokenSaleBalance);
+
+        let oldWeiBalanceBuyer = new web3.utils.BN(await web3.eth.getBalance(anotherBuyerWhitelisted));
+        let gasPrice = new web3.utils.BN(await web3.eth.getGasPrice());
+        let gasUsed = 0;
+
+        let trc = await this.tokenSale.sellTokens(expectedBalance, {
+            from: anotherBuyerWhitelisted
+        }).should.be.fulfilled;
+        gasUsed += trc.receipt.gasUsed;
+
+        let gasEther = gasPrice.mul(new web3.utils.BN(gasUsed));
+        let expectedWeiBalanceBuyer = (oldWeiBalanceBuyer.sub(gasEther)).add(new web3.utils.BN(priceForSell*expectedBalance));
+        let newWeiBalanceBuyer = new web3.utils.BN(await web3.eth.getBalance(anotherBuyerWhitelisted));
+
+        expectedWeiBalanceBuyer.should.be.eq.BN(newWeiBalanceBuyer)
+    });
 })

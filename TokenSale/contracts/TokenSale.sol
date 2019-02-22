@@ -4,8 +4,9 @@ import "openzeppelin-solidity/contracts/crowdsale/distribution/PostDeliveryCrowd
 import "openzeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/ECRecovery.sol";
+import "./MatToken.sol";
 
-contract TokenSale is Ownable, PostDeliveryCrowdsale{
+contract TokenSale is Ownable, PostDeliveryCrowdsale {
     using SafeMath for uint;
     using ECRecovery for bytes32;
 
@@ -13,6 +14,8 @@ contract TokenSale is Ownable, PostDeliveryCrowdsale{
     event SaleAborted(uint abortedTime);
     event TokenGeneration(address indexed buyer, uint tokens);
     event Refund(address indexed buyer, uint weiAmount);
+    event WeiRetrieved(address indexed owner, uint weiAmount);
+    event TokenSell(address indexed buyer, uint tokensSold, uint weiRetrieved);
 
     mapping(address => bool) public whitelistedAddresses;
     mapping(bytes32 => uint) public weiPerBonus;
@@ -24,6 +27,7 @@ contract TokenSale is Ownable, PostDeliveryCrowdsale{
     uint public bonus;
     uint public duration;
     uint etherRetrievedByOwner;
+    uint totalTokenAmount;
 
     constructor(
         uint _price,
@@ -134,6 +138,7 @@ contract TokenSale is Ownable, PostDeliveryCrowdsale{
 
         // update state
         weiRaised = weiRaised.add(weiAmount);
+        totalTokenAmount = totalTokenAmount.add(tokens);
 
         _processPurchase(_buyer, tokens);
         emit TokenPurchase(
@@ -172,13 +177,20 @@ contract TokenSale is Ownable, PostDeliveryCrowdsale{
         if (percentageWeiAmount <= 90) {
             etherRetrievedByOwner = etherRetrievedByOwner.add(_weiAmount);
             owner.transfer(_weiAmount);
+            emit WeiRetrieved(owner, _weiAmount);
         } else {
             revert("Cannot Retrieve more than 90% of the total balance");
         }
     }
 
     function sellTokens(uint _tokenAmount) onlyIfNotAborted onlyIfClosed external {
+        uint price = weiRaised.mul(10).div(100).div(totalTokenAmount);
+        uint weiForRetrieve = _tokenAmount.mul(price);
 
+        MatToken(token).burn(msg.sender, _tokenAmount);
+        msg.sender.transfer(weiForRetrieve);
+
+        emit TokenSell(msg.sender, _tokenAmount, weiForRetrieve);
     }
 
     function abortSale() onlyOwner onlyWhileOpen external {
