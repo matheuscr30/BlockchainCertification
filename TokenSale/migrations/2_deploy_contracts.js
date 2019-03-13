@@ -20,6 +20,6 @@ module.exports = async function(deployer, network, accounts) {
     )
     const deployedTokenSale = await TokenSale.deployed();
 
-    //console.log("Deployed MatToken: ", deployedMatToken);
-    //console.log("Deployed TokenSale: ", deployedTokenSale);
+    console.log("Deployed MatToken: ", deployedMatToken);
+    console.log("Deployed TokenSale: ", deployedTokenSale);
 }

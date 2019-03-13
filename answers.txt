@@ -1,34 +1,130 @@
 Section 3: Contract Questions
 
 1. I didn't use libraries because i used the OpenZeppelin Contracts and the rest of the code implemented by myself is
-so specific and just useful for the specific contract, so i prefer keep the functions in the contract itself
+so specific and just useful for the specific contract, so i prefer keep the functions in the contract itself.
 
-2. I used the 3rd party code from OpenZeppelin, because they implement and simplify a lot of code. Being specific, n
+2. I used the 3rd party code from OpenZeppelin, because they implement and simplify a lot of code. Being specific, in
 the TokenSale I used the Ownable Contract to set an owner to the contract and the PostDeliveryCrowdsale that
 inherit the Crowdsale that provide a Crowdsale with opening and closing time, post delivering the tokens to the user.
-Also, I used the MintableToken that inherit the ERC20 for develop the token
+Also, I used the MintableToken that inherit the ERC20 for develop the token.
 
 3. In the storage I saved the 3 parameters to the constructor of the contract (price, bonus, duration). Also, I saved
 a mapping(address => bool) whitelistedAddresses to save for each address a boolean confirming when the user provided
 a valid whitelist note before start to buy tokens, a mapping(bytes32 => uint) weiPerBonus to allow the user to use a
 bonus note multiple times increasing the wei per bonus in each purchase using the bonus note, a
 mapping(address => uint) etherSpentPerAddress to save the ether spent for each address for in the case of the sale been
-aborted and the user buy tokens with bonus and try to refund the ether invested. Plus that, I saved other 2 variables,
-a boolean isAborted to save when the sale is aborted or not and an int etherRetrievedByOwner to let the owner retrieve
-many times after the sale is finished
+aborted and the user buy tokens with bonus and try to refund the ether invested. Plus that, I saved other 3 variables,
+a boolean isAborted to save when the sale is aborted or not, an int etherRetrievedByOwner to let the owner retrieve
+many times after the sale is finished and an int totalTokenAmount to save the total amount of token generated to
+calculate the price when the user wanna sell his tokens.
 
-4. I implemented 4 events, the first event WhitelistAdded is emitted when some buyer provided manually a whitelist note
+4. I implemented 6 events, the first event WhitelistAdded is emitted when some buyer provided manually a whitelist note
 before start buying tokens with the buyer address as an argument. The second event SaleAborted is emitted when the sale
 is aborted passing the aborting time as an argument. The third event TokenGeneration is emitted when the user generate
-his tokens after the a sucessful sale passing int the arguments the address of the buyer and the amount of the tokens
-generated. Also, the OpenZeppelin provide another event the TokenPurchase that is the event when the buyers buy tokens
+his tokens after a sucessful sale passing in the arguments the address of the buyer and the amount of the tokens
+generated. The fourth event Refund is emitted when the sale is aborted and a buyer refunds his ether spent passing as
+arguments: the address of the buyer and the wei amount of the refund. The fifth event WeiRetrieved is emitted when the
+owner after a sucessful sale withdraw at maximum 90% of the available ether in the contract passing as arguments the
+address of the owner and the wei amount of the withdraw. The last event TokenSell is emitted when the user sell his
+tokens passing as arguments the address of the user, the amount of the sold tokens and the wei retrieved by the sell
+Also, the OpenZeppelin provide another event the TokenPurchase that is the event when the buyers buy tokens
 passing as arguments the address of the purchaser, the address of the beneficiary, the value of ether spent and the
-amount of tokens bought
+amount of tokens bought.
+
+
+Section 4:
+ETHERTOKEN:
+1, 2. The both properties hold. The possible causes that could broke this contract is Overflow/Underflow what is not
+possible because the SafeMath library is been used and Contract Reentrancy what is also not possible because all of the
+state changes in withdraw method are made before the .call. So, this contract is safe.
+
+
+TIMELOCK:
+1. The property doesn't hold. If the target of a lock or the controller try to extend the lock and pass a negative
+number not equal to the (expiry time of the lock * -1) but less or equal than (-1 * (expiry time - now)), the expiry
+time will be reduced and the target will be able to withdraw the wei stored in the lock. Also that happens, if the
+controller creates a lock passing a negative timeout different of (now * -1).
+
+2. This property holds.
+
+3. This property holds if all the participants are honest. But if they aren't, there are 3 ways to wei get stuck in the
+contract. The first one happens if the controller pass in the constructor a timeout of (now * -1) or a value that cause
+Overflow/Underflow what makes the expiry value be 0 and that is the condition of non-existent locks. The second one is
+practically the same but is when the controller or the target pass in the extendLockFor an extension of
+(actual expiry of the lock * -1) or a value that cause an Overflow/Underflow what will cause the same behavior and the
+expiry value will be 0. The last one happens when the target address has a fallback function that reverts what will make
+the withdraw function reverts and the wei be stuck on the contract as none of the parts will receive the transfer.
+
+Properties that should hold:
+1 - The controller cannot pass a negative number for the timeout in the constructor.
+2 - The controller or the target cannot pass a negative number for the extension in the extendLockFor.
+
+
+TOKENICO:
+1. If the creator of the contract pass in the constructor a negative value for the duration time, the ICO will not last
+2 weeks and the property will not hold. As the constructor is the beneficiary he wouldn't do that and there is not other
+way to break the property. So, we can say that the property holds.
+
+2. These property does not hold. It can be broken transferring ether to the contract by .selfdestruct, the endIco
+function calculates the sold tokens based on the balance of the contract, generates the extra tokens for the beneficiary
+based on the sold tokens and assign the sum of the sold tokens and the extra to the totalSupply. What makes the value of
+the totalSupply be different of the sum of the balances.
+
+As an example:
+Using a contract with duration of 2 Weeks and a maximum limit of 200 wei:
+    1. An user(U1) sends 50 Wei to the fallback function, increasing his balance to 500 TKS
+    2. Another user(U2) sends 100 Wei to the fallback function, increasing his balance to 1000 TKS
+    3. Someone sends 25 Wei to the contract by .selfdestruct
+    4. The beneficiary calls the endICO() function and the values are generated:
+        - Balance of the contract: 175 Wei
+        - Sold Tokens: balance*price = 175 * 10 = 1750 Tks
+        - Extra Tokens: sold/10 = 1750/10 = 175 Tks
+        - Balance of the beneficiary: 175 Tks
+        - Total Supply: sold+extra = 1750+175 = 1925 Tks
+
+In this example, the final total supply is 1925 tks, but calculating the sum of balances = 500(U1) + 1000(U2) +
+175(Beneficiary) = 1675 Tks, the values are different, what shows that the property does not hold
+
+3. These property does not hold. It can be broken when the maximum limit of the contract is reached and after that,
+someone sends ether to the contract by .selfdestruct. As the previous topic, the calculations of endICO are dependent of
+the contract's balance and when the maximum limit is overreached it generates more tokens than should for the
+beneficiary what exceeds the maximum amount of tokens permitted.
+
+As an example:
+Using a contract with duration of 2 Weeks and a maximum limit of 200 wei:
+    1. An user(U1) sends 200 Wei to the fallback function, increasing his balance to 2000 Tks
+    2. Someone sends 50 Wei to the contract by .selfdestruct
+    3. The beneficiary calls the endICO() function and the values are generated:
+        - Balance of the contract: 250 Wei
+        - Sold Tokens: balance*price = 250 * 10 = 2500 Tks
+        - Extra Tokens: sold/10 = 2500/10 = 250 Tks
+        - Balance of the beneficiary: 250 Tks
+        - Total Supply: sold+extra = 2500+250 = 2750 Tks
+
+In this example, the maximum token amount would be 2200(1.1 * 10 * maximum) but calculating the sum of the balances =
+2000(U1) + 250(Beneficiary) = 2250 Tks, what is greater than the maximum token amount showing that the property doesn't
+hold.
+
+HASHGAME:
+1. This property does not hold. If the player 1 reveals his vote after he saw a pending transaction of the commit of the
+player 2, the P2 would be allow to see the value of the P1 and if it would be advantageous, he could send another
+transaction with another value and a higher gas amount and make that transaction be mined first what would make the P2
+wins unjustly. Another way to break the property happens if the attacker is a miner, it means that he could choose the
+order of the transactions that would be mined and make the same thing as the previous example, verify if the result of
+P1 is good for him and if is not, send another transaction but changing the orders of the transactions in the block.
+
+2. This property holds
+
+3. This property holds
 
 
 Section 5:
 Ethereum Questions:
-1. //TODO HOW
+1. The data structure Merkle Patricia Trie is a tree that combine the structure of a Patricia Trie with a structure of a
+Merkle Tree. In other words, it is a binary tree where the leaf nodes store the real data, the intermediate nodes store
+a hash of the 2 child nodes and the root node also store a hash of the 2 child nodes. As the hash of the root always
+depend of his children, you can verify any node in any level of the tree without having the whole tree stored what is
+the main advantage of use the Merkle Patricia Trie. Beyond that, the insert/delete operations are also more efficient
 
 2. Memory, Storage and Stack are different ways to store variables in the EVM. The storage is the most expensive method
 because using that the variables are saved directly in the storage of the contract what causes them to be persistent.
@@ -71,7 +167,7 @@ receives his refund, the miner receives his gas, the accounts are deleted and ju
 
 Solidity Questions:
 7. When you use the public modifier it means that if is applied in functions, those functions will be available to call
-internally or with transactions, and if is applied in variables solidity creates automatically a getter for that
+internally or with transactions(external), and if is applied in variables solidity creates automatically a getter for that
 variable
 
 8. When the internal modifier is used in all of the functions of a library, it means that no function can be accessed
@@ -104,8 +200,13 @@ throw an error when it fails, it just returns false what makes the developers al
 main difference is that the call let us define the gas limit what is useful in the case of the default gas limit of 2300
 is not enough, but it generates a big problem because the call doesn't prevent contract reentrancy
 
-14. Contract Reentrancy is when some user creates a malicious contract(MC) that calls another contract (NC) and the NC
-contract make a call back to the contract that called him //TODO finish
+14. The Contract Reentrancy happens when some user creates a malicious contract(MC) that calls a function of another
+contract (AC) and that function has a transfer for the sender by the .call. If the balance is set after the return of
+the call, its possible to attack the contract(AC). Instead of .transfer that has a gas limit of 2300, the .call doesn't
+have a limit if is not explicit set, what allows a malicious user to create a function in the MC that calls the AC and
+a fallback function that also call the function where the .call is used. As the call doesnt have a limit, when the MC
+call the function in AC, the AC will call back the fallback function of MC, but the fallback function of MC also call
+the AC again creating a reentrancy in the attack that will stop just when the AC run out of ether
 
 15. One of the ways is the selfdestruct method that is a function that destroys a contract, clean the storage used by
 the contract and returns all of the remaining funds in the contract for the address passed by parameter in the call of
@@ -141,4 +242,30 @@ cannot be exchanged in pieces like money and coins). As the tokens are non-fungi
 to specify more information about the tokens than the other standards what is one more advantage because it improves
 the trust in the contracts
 
-21.
+21. There are 2 ways to transfer ERC20 tokens, one of them is the transfer function that works perfectly when you
+transfer tokens from a person's address to another person's address. But that transfer function has a bug when the
+transfer is from a person's address to a contract's address, because the contract will not notice the transfer request,
+and the person that transferred will lost all of the tokens transferred. Specifically in that case, it's obligatory to
+use the second way, the functions approve/transferFrom that creates a secure approve system for the transfer
+
+22. The basic ideas behind payment/state channels are to cut costs and reduce the waiting time of the transactions.
+The payment channels consists in create a smart contract with a certain amount of deposit that save the transactions
+for a group of users. When the users wanna make a transfer, they just sign a message and the contract will make the
+changes internally instead of push that to the Blockchain. After all of the transactions happened and the payment
+channel closes, the changes are propagate to the Blockchain. The big benefit of use payment channels is that you have to
+hit the blockchain just two times, in the creation and in the closure. The state channels are so similar of the payment
+channels but instead of the payment channels, which you can use just for transfer currencies, the state channels can be
+used for any transactions in the Blockchain.
+
+23. A proxy contract is a contract that forwards their functions calls to another contract. The proxy contracts are used
+to permit the contracts to be upgradeable. To make a contract upgradeable, you need to have at least 3 contracts, one of
+those contracts is a storage contract where all of the data will be saved and won't be logic functions on this contract,
+the other one is a logic contract where the control of everything is, all of the logic functions. And the last one is
+the proxy contract that store the addresses of the store's contract and the logic's contract, and forward all of the
+functions calls to the logic contract. So, to execute a function of the logic's contract, you just have to call the same
+function in the proxy contract. And to upgrade a contract it's simple, you just have to change the address of the logic
+contract in the proxy contract.
+
+24. As the ether was built before the ERC20, it does not follow his standards what makes impossible to trade directly
+tokens by ether, and if we have ether as ERC20, it would be possible what is a big advantage as it facilitates the
+trades between the users
