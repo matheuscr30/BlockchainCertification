@@ -1,4 +1,5 @@
 .idea/
 TokenSale/build/
 TokenSale/node_modules/
+TokenSale/package-lock.json
 deployed.txt
